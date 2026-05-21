@@ -1,0 +1,13 @@
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# OS
+.DS_Store
+Thumbs.db
+
+# OneDrive
+.~lock*
