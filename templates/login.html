@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}EduPilot AI - Platform Login{% endblock %}
+
+{% block header_title %}Unified Dashboard Login{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center py-4" style="min-height: 70vh;">
+    <div class="auth-card card-premium card-glow-indigo animate-fade-in-up">
+        <div class="text-center mb-4">
+            <h3 class="font-weight-700 m-0">Welcome Back</h3>
+            <p class="text-secondary small">Access your personalized educational guides</p>
+        </div>
+
+        <!-- Role Selector Tabs -->
+        <ul class="nav nav-pills nav-justified mb-4 p-1 border border-glass" style="border-radius:10px; background: rgba(0,0,0,0.1);" id="roleTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active py-2 rounded-3 text-secondary" style="font-weight: 500;" id="student-tab" data-bs-toggle="tab" data-bs-target="#student-pane" type="button" role="tab" onclick="setRole('student')">
+                    Student
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link py-2 rounded-3 text-secondary" style="font-weight: 500;" id="teacher-tab" data-bs-toggle="tab" data-bs-target="#teacher-pane" type="button" role="tab" onclick="setRole('teacher')">
+                    Teacher
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link py-2 rounded-3 text-secondary" style="font-weight: 500;" id="admin-tab" data-bs-toggle="tab" data-bs-target="#admin-pane" type="button" role="tab" onclick="setRole('admin')">
+                    Admin
+                </button>
+            </li>
+        </ul>
+
+        <!-- Flask Flash Alerts -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, msg in messages %}
+                    <div class="alert alert-{% if category == 'error' %}danger{% else %}{{ category }}{% endif %} border-0 bg-opacity-15 text-start py-2 px-3 small rounded-3 mb-3 d-flex align-items-center gap-2" role="alert">
+                        <i class="fa-solid {% if category == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+                        <div>{{ msg }}</div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Form Submission -->
+        <form action="{{ url_for('login') }}" method="POST">
+            <input type="hidden" name="role" id="selected-role" value="student">
+            
+            <div class="mb-3">
+                <label class="form-label form-label-premium">Email Address</label>
+                <input type="email" name="email" class="form-control form-control-premium" placeholder="name@edupilot.com" required>
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label form-label-premium">Account Password</label>
+                <input type="password" name="password" class="form-control form-control-premium" placeholder="••••••••" required>
+            </div>
+            
+            <button type="submit" class="btn btn-premium w-100 py-2.5">
+                <i class="fa-solid fa-right-to-bracket me-2"></i>Sign In to Dashboard
+            </button>
+        </form>
+
+        <div class="text-center mt-4 border-top border-glass pt-3">
+            <span class="text-secondary small">New Student?</span>
+            <a href="{{ url_for('register') }}" class="text-accent-secondary small ms-1 font-weight-500 text-decoration-none">
+                Register Student Profile
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Tab switching support
+    function setRole(role) {
+        document.getElementById('selected-role').value = role;
+        // Update active classes style
+        document.querySelectorAll('#roleTab button').forEach(btn => {
+            if (btn.id === `${role}-tab`) {
+                btn.style.color = 'var(--accent-primary)';
+                btn.style.background = 'var(--accent-glow)';
+            } else {
+                btn.style.color = 'var(--text-secondary)';
+                btn.style.background = 'transparent';
+            }
+        });
+    }
+    
+    // Set initial colors
+    document.addEventListener("DOMContentLoaded", () => {
+        setRole('student');
+    });
+</script>
+{% endblock %}

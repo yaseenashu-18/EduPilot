@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Center - EduPilot AI{% endblock %}
+
+{% block header_title %}Academic Analytics & Visualization Center{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+    <!-- Header Block -->
+    <div class="row align-items-center mb-4 p-3 card-premium card-glow-indigo">
+        <div class="col">
+            <h3 class="font-weight-700 m-0">Performance Insights & Metrics</h3>
+            <p class="text-secondary m-0 small">Graphical breakdown of performance vectors, averages, and predictive curves</p>
+        </div>
+    </div>
+
+    {% if session.get('role') == 'student' %}
+    <!-- STUDENT ANALYTICS LAYOUT -->
+    <div class="row g-4 mb-4">
+        <!-- Grade Line Graph -->
+        <div class="col-lg-8">
+            <div class="card-premium h-100">
+                <h5 class="font-weight-700 mb-3"><i class="fa-solid fa-chart-line text-accent-primary me-2"></i>GPA Progression Profile</h5>
+                <p class="text-secondary small mb-4">Displays your semester-wise Grade Point Average (GPA) compared across active academic sessions.</p>
+                <div style="height: 300px;">
+                    <canvas id="cgpaTrendChart" 
+                            data-chart-values="[7.2, 7.5, 7.3, 7.6, 7.8, 7.8]" 
+                            data-chart-labels='["Sem 1", "Sem 2", "Sem 3", "Sem 4", "Sem 5", "Sem 6"]'></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metric Details -->
+        <div class="col-lg-4">
+            <div class="card-premium h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <h5 class="font-weight-700 mb-3"><i class="fa-solid fa-circle-info text-accent-secondary me-2"></i>Insight Breakdown</h5>
+                    
+                    <div class="p-3 bg-dark bg-opacity-20 border border-glass rounded-4 mb-3">
+                        <span class="text-muted d-block small mb-1">Target Milestone (Next Semester)</span>
+                        <span class="font-weight-600 text-light">Predicted: {{ "%.2f"|format(predicted_gpa) }}</span>
+                    </div>
+
+                    <div class="p-3 bg-dark bg-opacity-20 border border-glass rounded-4">
+                        <span class="text-muted d-block small mb-1">Placement Competency Score</span>
+                        <span class="font-weight-600 text-light">{{ "%.1f"|format(placement_score) }}%</span>
+                        <div class="readiness-meter mt-2">
+                            <div class="readiness-progress" data-value="{{ placement_score }}"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="pt-3 border-top border-glass text-muted small">
+                    Predictions models computed by EduPilot ML Core engine.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subject Marks Radar Grid -->
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card-premium">
+                <h5 class="font-weight-700 mb-3"><i class="fa-solid fa-chart-simple text-accent-secondary me-2"></i>Subject Performance Analysis</h5>
+                <div style="height: 280px;">
+                    <canvas id="subjectPerformanceChart" 
+                            data-chart-values='{{ marks_values|tojson }}' 
+                            data-chart-labels='{{ marks_labels|tojson }}'></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card-premium h-100">
+                <h5 class="font-weight-700 mb-4"><i class="fa-solid fa-star-half-stroke text-success me-2"></i>Academic Recommendations Summary</h5>
+                <div class="p-3 bg-dark bg-opacity-20 border border-glass rounded-4 mb-3">
+                    <h6 class="text-accent-secondary font-weight-600 mb-2">Primary Subject Highlights</h6>
+                    <ul class="text-secondary small ps-3 m-0">
+                        {% for sub, mark in subjects_marks %}
+                        <li>{{ sub }}: <strong>{{ mark }}%</strong> ({% if mark >= 80 %}Excellent{% elif mark >= 60 %}Average{% else %}Weak{% endif %})</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                
+                <a href="{{ url_for('student_recommendations') }}" class="btn btn-premium btn-sm w-100 mt-2">
+                    <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Access Extended AI Recommendation Path
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- TEACHER / ADMIN GLOBAL ANALYTICS LAYOUT -->
+    <div class="row g-4 mb-4">
+        <!-- Global Attendance distribution bar chart -->
+        <div class="col-lg-8">
+            <div class="card-premium h-100">
+                <h5 class="font-weight-700 mb-3"><i class="fa-solid fa-chart-column text-accent-secondary me-2"></i>Global Attendance Stratification</h5>
+                <p class="text-secondary small mb-4">Roster counts of students grouped into attendance frequency clusters.</p>
+                <div style="height: 300px;">
+                    <canvas id="attendanceDistributionChart" 
+                            data-categories='["<60% (High Risk)", "60-75% (Medium)", "75-90% (Satisfactory)", "90-100% (Excellent)"]' 
+                            data-counts='{{ attendance_distribution|tojson }}'></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global statistics card -->
+        <div class="col-lg-4">
+            <div class="card-premium h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <h5 class="font-weight-700 mb-4"><i class="fa-solid fa-chart-pie text-accent-primary me-2"></i>Supervision Summary</h5>
+                    
+                    <div style="height: 200px; position: relative;">
+                        <canvas id="riskDistributionChart" 
+                                data-low-count="{{ stats.low_risk }}" 
+                                data-med-count="{{ stats.med_risk }}" 
+                                data-high-count="{{ stats.high_risk }}"></canvas>
+                    </div>
+                </div>
+                
+                <div class="border-top border-glass pt-3 mt-4 text-center text-muted small">
+                    Consolidated from active sqlite transaction scopes.
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

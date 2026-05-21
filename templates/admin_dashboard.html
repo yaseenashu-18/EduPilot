@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Console - EduPilot AI{% endblock %}
+
+{% block header_title %}System Administration Console{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+    <!-- Admin Header -->
+    <div class="row align-items-center mb-4 p-3 card-premium card-glow-indigo">
+        <div class="col">
+            <h3 class="font-weight-700 m-0">Global Platform Control</h3>
+            <p class="text-secondary m-0 small">Manage educational databases, train machine learning parameters, and supervisions</p>
+        </div>
+    </div>
+
+    <!-- Flask Flash Alerts -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, msg in messages %}
+                <div class="alert alert-{% if category == 'error' %}danger{% else %}{{ category }}{% endif %} border-0 bg-opacity-15 text-start py-2 px-3 small rounded-3 mb-4 d-flex align-items-center gap-2" role="alert">
+                    <i class="fa-solid {% if category == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+                    <div>{{ msg }}</div>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Stat Highlights -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="card-premium text-center">
+                <span class="text-secondary small font-weight-500">TOTAL STUDENTS</span>
+                <h3 class="font-weight-700 mt-1 text-accent-secondary">{{ stats.students_count }}</h3>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card-premium text-center">
+                <span class="text-secondary small font-weight-500">TOTAL TEACHERS</span>
+                <h3 class="font-weight-700 mt-1 text-success">{{ stats.teachers_count }}</h3>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card-premium text-center">
+                <span class="text-secondary small font-weight-500">DATASET SIZE (ROWS)</span>
+                <h3 class="font-weight-700 mt-1 text-warning">{{ stats.csv_rows }}</h3>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card-premium text-center">
+                <span class="text-secondary small font-weight-500">ACTIVE ML MODELS</span>
+                <h3 class="font-weight-700 mt-1 text-accent-primary">2 / 2</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Center Split -->
+    <div class="row g-4 mb-4">
+        <!-- Machine Learning Parameters Console -->
+        <div class="col-lg-6">
+            <div class="card-premium h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <h5 class="font-weight-700 mb-3"><i class="fa-solid fa-microchip text-accent-primary me-2"></i>AI & Data Management Panel</h5>
+                    <p class="text-secondary small mb-4">
+                        Regenerate synthetic data using Faker, Pandas, and NumPy, and retrain the RandomForestClassifier (Risk Model) and LinearRegression (GPA Model) instantly on-demand.
+                    </p>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-6">
+                            <div class="p-3 bg-dark bg-opacity-20 border border-glass rounded-4">
+                                <span class="text-muted d-block small mb-1">Risk Classifier Algorithm</span>
+                                <span class="font-weight-600 small text-accent-secondary">Random Forest</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 bg-dark bg-opacity-20 border border-glass rounded-4">
+                                <span class="text-muted d-block small mb-1">GPA Regressor Algorithm</span>
+                                <span class="font-weight-600 small text-accent-secondary">Linear Regression</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 pt-3 border-top border-glass">
+                    <a href="{{ url_for('admin_generate_data') }}" class="btn btn-premium flex-grow-1">
+                        <i class="fa-solid fa-database me-2"></i>Regenerate 5k Student Dataset
+                    </a>
+                    <a href="{{ url_for('admin_train_models') }}" class="btn btn-outline-secondary border-glass flex-grow-1">
+                        <i class="fa-solid fa-gears me-2"></i>Retrain & Load ML Models
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add New Faculty Account Form -->
+        <div class="col-lg-6">
+            <div class="card-premium h-100">
+                <h5 class="font-weight-700 mb-3"><i class="fa-solid fa-user-plus text-success me-2"></i>Register Faculty Account</h5>
+                <p class="text-secondary small mb-3">Add authorized professors or counselors to supervise department analytics dashboards.</p>
+                
+                <form action="{{ url_for('admin_add_teacher') }}" method="POST">
+                    <div class="row">
+                        <div class="col-sm-6 mb-2">
+                            <label class="form-label form-label-premium small">Professor Full Name</label>
+                            <input type="text" name="name" class="form-control form-control-premium form-control-sm" placeholder="Dr. Sarah Connor" required>
+                        </div>
+                        <div class="col-sm-6 mb-2">
+                            <label class="form-label form-label-premium small">Authorized Email</label>
+                            <input type="email" name="email" class="form-control form-control-premium form-control-sm" placeholder="sarah@edupilot.com" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-6 mb-3">
+                            <label class="form-label form-label-premium small">Account Password</label>
+                            <input type="password" name="password" class="form-control form-control-premium form-control-sm" placeholder="••••••••" required>
+                        </div>
+                        <div class="col-sm-6 mb-3">
+                            <label class="form-label form-label-premium small">Supervision Department</label>
+                            <select name="department" class="form-select form-control-premium form-control-sm" required>
+                                <option value="Computer Science">Computer Science</option>
+                                <option value="Artificial Intelligence">Artificial Intelligence</option>
+                                <option value="Data Science">Data Science</option>
+                                <option value="DevOps">DevOps</option>
+                                <option value="Cybersecurity">Cybersecurity</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-premium w-100 btn-sm py-2">
+                        <i class="fa-solid fa-circle-check me-2"></i>Add Faculty Member
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Faculty List -->
+    <div class="card-premium">
+        <h5 class="font-weight-700 mb-4"><i class="fa-solid fa-chalkboard-user text-accent-secondary me-2"></i>Active Registered Teachers</h5>
+        <div class="table-responsive">
+            <table class="table table-hover table-dark table-borderless align-middle m-0">
+                <thead>
+                    <tr class="border-bottom border-glass text-secondary" style="font-size: 0.85rem;">
+                        <th>FACULTY NAME</th>
+                        <th>DEPARTMENT SUPERVISION</th>
+                        <th>LOGIN EMAIL</th>
+                        <th class="text-end">ROSTER CONTROL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if teachers %}
+                        {% for t in teachers %}
+                        <tr>
+                            <td class="font-weight-600">{{ t.name }}</td>
+                            <td><span class="badge bg-secondary bg-opacity-20 text-secondary border border-glass px-2.5 rounded-pill">{{ t.department }}</span></td>
+                            <td class="text-secondary small">{{ t.email }}</td>
+                            <td class="text-end">
+                                <a href="{{ url_for('admin_delete_teacher', teacher_id=t.id) }}" class="btn btn-outline-danger btn-sm border-0 py-1" onclick="return confirm('Are you sure you want to remove this teacher account?');">
+                                    <i class="fa-regular fa-trash-can"></i> Remove
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="text-muted text-center py-4">No teachers registered yet.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

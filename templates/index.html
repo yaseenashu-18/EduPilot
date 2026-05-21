@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}EduPilot AI - Smart Academic & Career Guidance{% endblock %}
+
+{% block header_title %}Welcome to EduPilot AI{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <section class="hero-section card-premium border-0 mb-5 text-center animate-fade-in-up">
+        <h1 class="hero-title">Navigate Your Academic & Career Journey</h1>
+        <p class="text-secondary mx-auto mb-4" style="max-width: 650px; font-size: 1.15rem;">
+            EduPilot AI is a modern Machine Learning platform that predicts academic risks, forecasts GPA trends, calculates placement readiness, and generates customized weekly paths to keep you on the path to excellence.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3">
+            <a href="{{ url_for('login') }}" class="btn btn-premium px-4 py-2" style="font-size: 1.05rem;">
+                <i class="fa-solid fa-right-to-bracket me-2"></i>Access Platform Dashboard
+            </a>
+            <a href="{{ url_for('register') }}" class="btn btn-outline-secondary px-4 py-2 border-glass" style="font-size: 1.05rem; border-radius:10px;">
+                <i class="fa-solid fa-user-plus me-2"></i>Student Registration
+            </a>
+        </div>
+    </section>
+
+    <!-- Stat Highlights -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card-premium card-glow-indigo text-center h-100">
+                <div class="brand-icon mx-auto mb-3" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-brain"></i>
+                </div>
+                <h3 class="font-weight-700">98.2%</h3>
+                <p class="text-secondary m-0">Risk Prediction Accuracy</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-premium card-glow-indigo text-center h-100" style="--accent-primary: var(--accent-secondary);">
+                <div class="brand-icon mx-auto mb-3" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: rgba(6, 182, 212, 0.1); color: var(--accent-secondary);">
+                    <i class="fa-solid fa-compass"></i>
+                </div>
+                <h3 class="font-weight-700">5+ Career Tracks</h3>
+                <p class="text-secondary m-0">Dynamic Weekly Path Generators</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-premium card-glow-indigo text-center h-100">
+                <div class="brand-icon mx-auto mb-3" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-fire"></i>
+                </div>
+                <h3 class="font-weight-700">4,200+ Students</h3>
+                <p class="text-secondary m-0">Actively Navigating Academics</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Features Grid -->
+    <h2 class="text-center font-weight-700 mb-4">Empowering Every Stakeholder</h2>
+    <div class="row g-4">
+        <div class="col-lg-4 col-md-6">
+            <div class="card-premium h-100">
+                <h5 class="font-weight-600 mb-3"><i class="fa-solid fa-user-graduate me-2 text-accent-secondary"></i>For Students</h5>
+                <ul class="text-secondary ps-3" style="line-height: 1.8;">
+                    <li>Interactive productivity streaks.</li>
+                    <li>Weekly AI tasks customized to weaknesses.</li>
+                    <li>Placement readiness percentage meters.</li>
+                    <li>Predictive CGPA line charts.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+            <div class="card-premium h-100">
+                <h5 class="font-weight-600 mb-3"><i class="fa-solid fa-chalkboard-user me-2 text-success"></i>For Teachers</h5>
+                <ul class="text-secondary ps-3" style="line-height: 1.8;">
+                    <li>Complete department supervision rosters.</li>
+                    <li>Instant alarms on high academic risks.</li>
+                    <li>Visual class performance comparison charts.</li>
+                    <li>One-click student summary reports.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-12">
+            <div class="card-premium h-100">
+                <h5 class="font-weight-600 mb-3"><i class="fa-solid fa-shield-halved me-2 text-warning"></i>For Administrators</h5>
+                <ul class="text-secondary ps-3" style="line-height: 1.8;">
+                    <li>Consolidated platform registration metrics.</li>
+                    <li>Complete teacher & student list controls.</li>
+                    <li>Triggerable dataset import controls.</li>
+                    <li>On-demand ML model training interfaces.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Motivational Quotes Container -->
+    <div class="mt-5 p-4 card-premium quote-banner text-center animate-fade-in-up">
+        <i class="fa-solid fa-quote-left fa-2x text-accent-primary mb-3"></i>
+        <h5 class="font-weight-500 italic mb-2" id="motivational-quote">
+            "Your learning path is unique. Master your habits, and your goals will follow."
+        </h5>
+        <span class="text-muted" style="font-size:0.85rem;">— Daily Academic Seed</span>
+    </div>
+</div>
+{% endblock %}

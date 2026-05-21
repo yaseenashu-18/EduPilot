@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}AI Recommendations - EduPilot AI{% endblock %}
+
+{% block header_title %}AI Guidance & Study Roadmap{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2 animate-fade-in-up">
+    <!-- Header Block -->
+    <div class="row align-items-center mb-4 p-3 card-premium card-glow-indigo">
+        <div class="col">
+            <h3 class="font-weight-700 m-0">EduPilot AI Recommendation Suite</h3>
+            <p class="text-secondary m-0 small">Personalized study paths, subject remedial plans, and industry career guides</p>
+        </div>
+    </div>
+
+    <!-- Critical / Urgent Actions Banners -->
+    {% if recommendations.urgent_actions %}
+    <div class="mb-4">
+        {% for action in recommendations.urgent_actions %}
+        <div class="alert alert-danger border-0 bg-opacity-15 p-3 rounded-4 mb-2 d-flex align-items-start gap-3 shadow-sm animate-pulse" role="alert">
+            <i class="fa-solid fa-triangle-exclamation fa-lg mt-1 text-danger"></i>
+            <div>
+                <strong class="text-light d-block mb-1">Urgent Notification</strong>
+                <span class="text-secondary small">{{ action }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="row g-4">
+        <!-- 1. Career Goal Pathway Roadmap -->
+        <div class="col-lg-6">
+            <div class="card-premium h-100 card-glow-indigo" style="--accent-primary: var(--accent-secondary);">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <h5 class="font-weight-700 m-0">
+                        <i class="fa-solid fa-compass text-accent-secondary me-2"></i>
+                        Career Track: {{ student.career_goal }}
+                    </h5>
+                    <span class="badge bg-secondary bg-opacity-20 text-accent-secondary border border-glass px-2.5 rounded-pill small">Active Guide</span>
+                </div>
+                
+                <p class="text-secondary small mb-4">
+                    Our ML modeling and rule recommendation engines suggest focusing on the following core skill sets and checkpoints to qualify for standard industry placement testing in this domain:
+                </p>
+
+                <div class="timeline-custom">
+                    {% if recommendations.career_recommendations %}
+                        {% for rec in recommendations.career_recommendations %}
+                        <div class="d-flex gap-3 mb-3">
+                            <div class="brand-icon rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px; font-size: 0.85rem; background: var(--accent-glow); color: var(--accent-primary);">
+                                {{ loop.index }}
+                            </div>
+                            <div class="bg-dark bg-opacity-15 p-3 border border-glass rounded-4 flex-grow-1">
+                                <span class="text-light font-weight-500 small d-block">{{ rec }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted small">Select a career goal on the Dashboard to generate detailed roadmap components.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Academic Concept Remedial Plan -->
+        <div class="col-lg-6">
+            <div class="card-premium h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <h5 class="font-weight-700 mb-4">
+                        <i class="fa-solid fa-graduation-cap text-success me-2"></i>
+                        Academic Remedial & Growth Plan
+                    </h5>
+                    
+                    <!-- CGPA Status and guides -->
+                    <div class="p-3 bg-dark bg-opacity-20 border border-glass rounded-4 mb-4">
+                        <span class="text-muted d-block small mb-1">Current Academic Health</span>
+                        <div class="d-flex align-items-center gap-3">
+                            <h3 class="font-weight-700 m-0 text-success">{{ student.cgpa }} CGPA</h3>
+                            <span class="badge-custom badge-low-risk py-1 px-2">
+                                {% if student.cgpa >= 7.5 %}Outstanding{% elif student.cgpa >= 6.0 %}Average{% else %}Critical Attention{% endif %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <h6 class="font-weight-600 mb-3 small text-secondary">RECOMMENDED STUDY TASKS & HABITS</h6>
+                    <div class="study-tips-list">
+                        {% if recommendations.academic_recommendations %}
+                            {% for tip in recommendations.academic_recommendations %}
+                            <div class="p-3 bg-dark bg-opacity-10 border border-glass rounded-4 mb-2 d-flex align-items-center gap-2.5">
+                                <i class="fa-regular fa-lightbulb text-warning"></i>
+                                <span class="text-secondary small">{{ tip }}</span>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="p-3 bg-dark bg-opacity-10 border border-glass rounded-4 mb-2 d-flex align-items-center gap-2.5">
+                                <i class="fa-regular fa-lightbulb text-warning"></i>
+                                <span class="text-secondary small">Maintain your class presence above 75% and revise lectures daily.</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="border-top border-glass pt-3 mt-4 text-end">
+                    <a href="{{ url_for('student_dashboard') }}" class="btn btn-premium btn-sm">
+                        <i class="fa-solid fa-square-check me-2"></i>Check Weekly Tasks
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
