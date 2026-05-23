@@ -296,7 +296,7 @@ def login():
         if role == "admin" and email == "admin@edupilot.com":
             pass
         # Enforce @paruluniversity.ac.in domain validation for other logins
-        elif role in ["student", "teacher", "admin"] and not (email.endswith("@paruluniversity.ac.in") or email == "yaseenashu0108@gmail.com"):
+        elif role in ["student", "teacher", "admin"] and not (email.endswith("@paruluniversity.ac.in") or email in ["yaseenashu0108@gmail.com", "yaseenashu18@gmail.com"]):
             flash("Access restricted to @paruluniversity.ac.in domain users only.", "error")
             return render_template("login.html")
             
@@ -342,7 +342,7 @@ def register():
         career_goal = request.form.get("career_goal")
         
         # Enforce @paruluniversity.ac.in domain validation for registration
-        if not (email.endswith("@paruluniversity.ac.in") or email == "yaseenashu0108@gmail.com"):
+        if not (email.endswith("@paruluniversity.ac.in") or email in ["yaseenashu0108@gmail.com", "yaseenashu18@gmail.com"]):
             flash("Registration is restricted to @paruluniversity.ac.in domain users only.", "error")
             return render_template("register.html")
             
@@ -642,7 +642,7 @@ def login_google_callback():
             return redirect(url_for("login"))
             
         # 4. Enforce @paruluniversity.ac.in domain validation (except admin system bypass)
-        if email != "admin@edupilot.com" and email != "yaseenashu0108@gmail.com" and not email.endswith("@paruluniversity.ac.in"):
+        if email != "admin@edupilot.com" and email not in ["yaseenashu0108@gmail.com", "yaseenashu18@gmail.com"] and not email.endswith("@paruluniversity.ac.in"):
             flash("Access restricted to @paruluniversity.ac.in domain users only.", "error")
             return redirect(url_for("login"))
             
