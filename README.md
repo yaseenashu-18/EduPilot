@@ -86,8 +86,8 @@ To make platform testing instant, the database is pre-seeded with the following 
 
 | Profile Role | Login Email | Account Details |
 | :--- | :--- | :--- |
-| **Student** | `student@edupilot.com` | Name: **Yaseen Ashu**, CGPA: **7.8**, Attendance: **78%**, Department: **Computer Science** |
-| **Teacher** | `teacher@edupilot.com` | Name: **Dr. Sarah Connor**, Department: **Computer Science** |
+| **Student** | `student@paruluniversity.ac.in` | Name: **Yaseen Ashu**, CGPA: **7.8**, Attendance: **78%**, Department: **Computer Science** |
+| **Teacher** | `teacher@paruluniversity.ac.in` | Name: **Dr. Sarah Connor**, Department: **Computer Science** |
 | **Admin** | `admin@edupilot.com` | Name: **System Administrator** |
 
 ---
