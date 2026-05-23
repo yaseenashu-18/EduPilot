@@ -568,8 +568,6 @@ def login_google():
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
     if not redirect_uri:
         redirect_uri = url_for("login_google_callback", _external=True)
-        if "127.0.0.1" in redirect_uri:
-            redirect_uri = redirect_uri.replace("127.0.0.1", "localhost")
     
     # Generate random state to protect against CSRF
     state = secrets.token_urlsafe(16)
@@ -609,8 +607,6 @@ def login_google_callback():
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
     if not redirect_uri:
         redirect_uri = url_for("login_google_callback", _external=True)
-        if "127.0.0.1" in redirect_uri:
-            redirect_uri = redirect_uri.replace("127.0.0.1", "localhost")
     
     # 2. Exchange code for Access Token
     token_url = "https://oauth2.googleapis.com/token"
