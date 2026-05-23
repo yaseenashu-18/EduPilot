@@ -76,3 +76,26 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 150);
     });
 });
+
+/**
+ * Toggles a password input field's type between 'password' and 'text'
+ * and updates the state of its FontAwesome toggle icon.
+ * @param {string} fieldId - ID of the password input element
+ * @param {string} iconId - ID of the FontAwesome icon element
+ */
+function togglePasswordVisibility(fieldId, iconId) {
+    const passwordField = document.getElementById(fieldId);
+    const toggleIcon = document.getElementById(iconId);
+    if (!passwordField || !toggleIcon) return;
+    
+    if (passwordField.type === "password") {
+        passwordField.type = "text";
+        toggleIcon.classList.remove("fa-eye");
+        toggleIcon.classList.add("fa-eye-slash");
+    } else {
+        passwordField.type = "password";
+        toggleIcon.classList.remove("fa-eye-slash");
+        toggleIcon.classList.add("fa-eye");
+    }
+}
+

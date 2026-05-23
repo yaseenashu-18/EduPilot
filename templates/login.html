@@ -49,12 +49,20 @@
             
             <div class="mb-3">
                 <label class="form-label form-label-premium">Email Address</label>
-                <input type="email" name="email" class="form-control form-control-premium" placeholder="name@edupilot.com" required>
+                <input type="email" name="email" class="form-control form-control-premium" placeholder="name@paruluniversity.ac.in" required>
             </div>
             
             <div class="mb-4">
-                <label class="form-label form-label-premium">Account Password</label>
-                <input type="password" name="password" class="form-control form-control-premium" placeholder="••••••••" required>
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="form-label form-label-premium mb-0">Account Password</label>
+                    <a href="{{ url_for('forgot_password') }}" class="text-accent-secondary small text-decoration-none" style="font-size: 0.82rem; font-weight: 500; transition: color 0.2s;" onmouseover="this.style.color='var(--accent-primary)'" onmouseout="this.style.color='var(--accent-secondary)'">Forgot Password?</a>
+                </div>
+                <div class="password-wrapper">
+                    <input type="password" name="password" id="login-password" class="form-control form-control-premium" placeholder="••••••••" required>
+                    <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('login-password', 'login-toggle-icon')" title="Toggle Password Visibility">
+                        <i class="fa-solid fa-eye" id="login-toggle-icon"></i>
+                    </button>
+                </div>
             </div>
             
             <button type="submit" class="btn btn-premium w-100 py-2.5">
@@ -62,7 +70,19 @@
             </button>
         </form>
 
-        <div class="text-center mt-4 border-top border-glass pt-3">
+        <div class="auth-separator">or</div>
+
+        <a href="{{ url_for('login_google') }}" class="btn btn-google w-100 py-2.5 mb-3" id="google-login-btn">
+            <svg class="google-icon" viewBox="0 0 24 24">
+                <path fill="#EA4335" d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3C17.782 1.145 15.055 0 12 0 7.37 0 3.393 2.668 1.488 6.55l3.778 3.215z"/>
+                <path fill="#34A853" d="M16.04 15.345c-1.07.727-2.43 1.164-4.04 1.164-2.955 0-5.464-1.99-6.364-4.664L1.85 15.07c1.886 3.755 5.79 6.3 10.15 6.3 2.91 0 5.618-1.018 7.636-2.782l-3.596-3.243z"/>
+                <path fill="#4285F4" d="M23.49 12.275c0-.827-.074-1.623-.21-2.395H12v4.51h6.46c-.28 1.445-1.1 2.673-2.34 3.513l3.596 3.243c2.1-1.937 3.31-4.787 3.31-8.87z"/>
+                <path fill="#FBBC05" d="M5.636 11.845a7.032 7.032 0 0 1 0-2.08L1.858 6.55A11.962 11.962 0 0 0 0 12c0 1.92.453 3.74 1.258 5.368l4.378-3.523z"/>
+            </svg>
+            Sign in with Google
+        </a>
+
+        <div class="text-center mt-3 border-top border-glass pt-3">
             <span class="text-secondary small">New Student?</span>
             <a href="{{ url_for('register') }}" class="text-accent-secondary small ms-1 font-weight-500 text-decoration-none">
                 Register Student Profile

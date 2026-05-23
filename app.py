@@ -1,8 +1,14 @@
 import os
-import sqlite3
+import secrets
+from urllib.parse import urlencode
 import joblib
 import pandas as pd
 import numpy as np
+import pymongo
+from bson.objectid import ObjectId
+from bson.errors import InvalidId
+import requests
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -11,15 +17,51 @@ from ml.recommendation_engine import get_recommendations, generate_weekly_tasks
 from ml.generate_data import generate_synthetic_data
 from ml.train_model import train_models
 
-app = Flask(__name__)
-app.secret_key = "edupilot_ai_secret_key_secure_and_premium"
+# Load environment variables from .env
+load_dotenv()
 
-DB_PATH = os.path.join("database", "database.db")
+app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "edupilot_ai_secret_key_secure_and_premium")
+
+# MongoDB connection setup using pymongo client
+mongo_uri = os.getenv("MONGO_URI")
+client = pymongo.MongoClient(mongo_uri)
+try:
+    db = client.get_default_database()
+except Exception:
+    db = client["malvision"]
+
 CSV_PATH = "student_data.csv"
 
 # Global ML model placeholders
 risk_model = None
 gpa_model = None
+
+
+def mongo_to_dict(doc):
+    """Convert a PyMongo document to a standard dict with string id for templates"""
+    if doc is None:
+        return None
+    doc = dict(doc)
+    if "_id" in doc:
+        doc["id"] = str(doc["_id"])
+    return doc
+
+
+def mongo_to_list(cursor):
+    """Convert a PyMongo cursor to a list of dicts with string id"""
+    return [mongo_to_dict(doc) for doc in cursor]
+
+
+def to_object_id(val):
+    """Safely convert value to BSON ObjectId, returning None if invalid (e.g. SQLite integer IDs)"""
+    if not val:
+        return None
+    try:
+        return ObjectId(val)
+    except (InvalidId, TypeError, ValueError):
+        return None
+
 
 def load_ml_models():
     """Load serialized scikit-learn models from disk with fallback rules on missing pkls"""
@@ -49,15 +91,177 @@ def load_ml_models():
         print("GPA prediction pkl not found. Fallback rules will be used.")
         gpa_model = None
 
+
 # Load models on server boot
 load_ml_models()
 
 
-def get_db_connection():
-    """Establish connection to SQLite database with dictionary rows"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+def send_reset_email(to_email, reset_link):
+    """Send a password reset email using SMTP settings from the environment"""
+    smtp_server = os.getenv("SMTP_SERVER")
+    smtp_port = os.getenv("SMTP_PORT")
+    smtp_email = os.getenv("SMTP_EMAIL")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    
+    if not smtp_server or not smtp_email or not smtp_password:
+        print("[SMTP CONFIG] SMTP settings are not fully configured in the environment. Falling back to sandbox.")
+        return False, "SMTP settings are not fully configured in the environment."
+
+    try:
+        smtp_port = int(smtp_port) if smtp_port else 587
+    except ValueError:
+        smtp_port = 587
+        
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "EduPilot AI - Password Recovery"
+        msg["From"] = f"EduPilot AI <{smtp_email}>"
+        msg["To"] = to_email
+        
+        # HTML body
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>EduPilot AI - Password Reset</title>
+            <style>
+                body {{
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background-color: #f8fafc;
+                    margin: 0;
+                    padding: 0;
+                    color: #1e293b;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 40px auto;
+                    background: #ffffff;
+                    border-radius: 16px;
+                    overflow: hidden;
+                    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -4px rgba(0,0,0,0.05);
+                    border: 1px solid #e2e8f0;
+                }}
+                .header {{
+                    background: linear-gradient(135deg, #4f46e5, #0ea5e9);
+                    padding: 40px 20px;
+                    text-align: center;
+                    color: white;
+                }}
+                .header h1 {{
+                    margin: 0;
+                    font-size: 28px;
+                    font-weight: 700;
+                    letter-spacing: -0.5px;
+                }}
+                .header p {{
+                    margin: 8px 0 0 0;
+                    opacity: 0.9;
+                    font-size: 15px;
+                }}
+                .content {{
+                    padding: 40px 30px;
+                }}
+                .content p {{
+                    font-size: 16px;
+                    line-height: 1.6;
+                    color: #475569;
+                    margin-top: 0;
+                    margin-bottom: 24px;
+                }}
+                .btn-container {{
+                    text-align: center;
+                    margin: 35px 0;
+                }}
+                .btn {{
+                    display: inline-block;
+                    background-color: #4f46e5;
+                    color: #ffffff !important;
+                    text-decoration: none;
+                    padding: 14px 30px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2), 0 2px 4px -1px rgba(79, 70, 229, 0.1);
+                    transition: background-color 0.2s;
+                }}
+                .btn:hover {{
+                    background-color: #4338ca;
+                }}
+                .footer {{
+                    background-color: #f8fafc;
+                    padding: 24px 30px;
+                    text-align: center;
+                    font-size: 13px;
+                    color: #94a3b8;
+                    border-top: 1px solid #e2e8f0;
+                }}
+                .footer a {{
+                    color: #4f46e5;
+                    text-decoration: none;
+                }}
+                .security-note {{
+                    margin-top: 30px;
+                    font-size: 13px;
+                    color: #94a3b8;
+                    border-top: 1px dashed #e2e8f0;
+                    padding-top: 20px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>EduPilot AI</h1>
+                    <p>Intellectual Learning & Performance Analytics</p>
+                </div>
+                <div class="content">
+                    <p>Hello,</p>
+                    <p>We received a request to recover the password for your EduPilot account. Click the button below to set a new password:</p>
+                    
+                    <div class="btn-container">
+                        <a href="{reset_link}" class="btn" style="color: #ffffff !important;">Reset Password</a>
+                    </div>
+                    
+                    <p>If the button above does not work, copy and paste the following link into your web browser:</p>
+                    <p style="word-break: break-all; font-size: 14px; background-color: #f1f5f9; padding: 12px; border-radius: 6px; font-family: monospace;">
+                        {reset_link}
+                    </p>
+                    
+                    <div class="security-note">
+                        <p><strong>Note:</strong> This link is valid for the next 60 minutes. If you did not request this recovery, you can safely ignore this email. Your password will remain unchanged.</p>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>&copy; 2026 EduPilot AI. All rights reserved.</p>
+                    <p>For support, contact <a href="mailto:{smtp_email}">{smtp_email}</a></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(html_content, "html"))
+        
+        # Connect to server
+        if smtp_port == 465:
+            server = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=10)
+        else:
+            server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            
+        server.login(smtp_email, smtp_password)
+        server.sendmail(smtp_email, to_email, msg.as_string())
+        server.quit()
+        return True, None
+    except Exception as e:
+        print(f"[SMTP ERROR] Failed to send email via SMTP: {e}")
+        return False, str(e)
 
 
 # ----------------------------------------------------
@@ -88,24 +292,24 @@ def login():
         password = request.form.get("password")
         role = request.form.get("role")  # student, teacher, admin
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
+        # Allow administrative bypass for admin@edupilot.com
+        if role == "admin" and email == "admin@edupilot.com":
+            pass
+        # Enforce @paruluniversity.ac.in domain validation for other logins
+        elif role in ["student", "teacher", "admin"] and not (email.endswith("@paruluniversity.ac.in") or email == "yaseenashu0108@gmail.com"):
+            flash("Access restricted to @paruluniversity.ac.in domain users only.", "error")
+            return render_template("login.html")
+            
         user = None
         if role == "student":
-            cursor.execute("SELECT * FROM students WHERE email = ?", (email,))
-            user = cursor.fetchone()
+            user = db.students.find_one({"email": email})
         elif role == "teacher":
-            cursor.execute("SELECT * FROM teachers WHERE email = ?", (email,))
-            user = cursor.fetchone()
+            user = db.teachers.find_one({"email": email})
         elif role == "admin":
-            cursor.execute("SELECT * FROM admins WHERE email = ?", (email,))
-            user = cursor.fetchone()
+            user = db.admins.find_one({"email": email})
             
-        conn.close()
-        
         if user and check_password_hash(user["password"], password):
-            session["user_id"] = user["id"]
+            session["user_id"] = str(user["_id"])
             session["role"] = role
             session["name"] = user["name"]
             session["email"] = user["email"]
@@ -137,59 +341,70 @@ def register():
         semester = int(request.form.get("semester"))
         career_goal = request.form.get("career_goal")
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
+        # Enforce @paruluniversity.ac.in domain validation for registration
+        if not (email.endswith("@paruluniversity.ac.in") or email == "yaseenashu0108@gmail.com"):
+            flash("Registration is restricted to @paruluniversity.ac.in domain users only.", "error")
+            return render_template("register.html")
+            
         # Verify if student already registered
-        cursor.execute("SELECT id FROM students WHERE email = ?", (email,))
-        if cursor.fetchone():
+        if db.students.find_one({"email": email}):
             flash("Email already registered! Please sign in.", "error")
-            conn.close()
             return redirect(url_for("login"))
             
         hashed_pwd = generate_password_hash(password)
         
-        # Base defaults for registrations: attendance 80.0, cgpa 7.0, coding 50, assignment 60
         try:
-            cursor.execute("""
-            INSERT INTO students (name, email, password, department, semester, cgpa, attendance, coding_score, assignment_score, career_goal)
-            VALUES (?, ?, ?, ?, ?, 7.0, 80.0, 50, 60, ?)
-            """, (name, email, hashed_pwd, department, semester, career_goal))
+            # Base defaults for registrations: attendance 80.0, cgpa 7.0, coding 50, assignment 60
+            res = db.students.insert_one({
+                "name": name,
+                "email": email,
+                "password": hashed_pwd,
+                "department": department,
+                "semester": semester,
+                "cgpa": 7.0,
+                "attendance": 80.0,
+                "coding_score": 50,
+                "assignment_score": 60,
+                "career_goal": career_goal
+            })
             
-            student_id = cursor.lastrowid
+            student_id = res.inserted_id
             
             # Seed 5 basic subjects for student performance evaluation
             subjects = [
-                ("Data Structures & Algorithms", 70),
-                ("Database Management Systems", 68),
-                ("Operating Systems", 75),
-                ("Computer Networks", 62),
-                ("Mathematics", 65)
+                {"student_id": student_id, "subject_name": "Data Structures & Algorithms", "marks": 70},
+                {"student_id": student_id, "subject_name": "Database Management Systems", "marks": 68},
+                {"student_id": student_id, "subject_name": "Operating Systems", "marks": 75},
+                {"student_id": student_id, "subject_name": "Computer Networks", "marks": 62},
+                {"student_id": student_id, "subject_name": "Mathematics", "marks": 65}
             ]
-            for s_name, m in subjects:
-                cursor.execute("INSERT INTO subjects (student_id, subject_name, marks) VALUES (?, ?, ?)", (student_id, s_name, m))
+            db.subjects.insert_many(subjects)
                 
             # Create default weekly tasks
-            default_tasks = generate_weekly_tasks(student_id, 7.0, 80.0, 50, "Low Risk", career_goal, [])
+            default_tasks = generate_weekly_tasks(str(student_id), 7.0, 80.0, 50, "Low Risk", career_goal, [])
+            task_docs = []
             for task in default_tasks:
-                cursor.execute("""
-                INSERT INTO tasks (student_id, task_title, status, due_date)
-                VALUES (?, ?, ?, ?)
-                """, (student_id, task["task_title"], task["status"], task["due_date"]))
+                task_docs.append({
+                    "student_id": student_id,
+                    "task_title": task["task_title"],
+                    "status": task["status"],
+                    "due_date": task["due_date"]
+                })
+            if task_docs:
+                db.tasks.insert_many(task_docs)
                 
             # Create a base prediction record
-            cursor.execute("""
-            INSERT INTO predictions (student_id, predicted_gpa, risk_level, placement_score)
-            VALUES (?, 7.15, 'Low Risk', 58.0)
-            """, (student_id,))
+            db.predictions.insert_one({
+                "student_id": student_id,
+                "predicted_gpa": 7.15,
+                "risk_level": "Low Risk",
+                "placement_score": 58.0
+            })
             
-            conn.commit()
             flash("Account registered successfully! Please log in.", "success")
-            conn.close()
             return redirect(url_for("login"))
         except Exception as e:
             flash(f"Error during registration: {e}", "error")
-            conn.close()
             
     return render_template("register.html")
 
@@ -200,6 +415,338 @@ def logout():
     session.clear()
     flash("Successfully logged out.", "success")
     return redirect(url_for("index"))
+
+
+@app.route("/forgot_password", methods=["GET", "POST"])
+def forgot_password():
+    """Request a password reset link"""
+    if "user_id" in session:
+        role = session.get("role")
+        if role == "student":
+            return redirect(url_for("student_dashboard"))
+        elif role == "teacher":
+            return redirect(url_for("teacher_dashboard"))
+        elif role == "admin":
+            return redirect(url_for("admin_dashboard"))
+            
+    reset_link = None
+    if request.method == "POST":
+        email = request.form.get("email")
+        
+        # 1. Search across collections
+        student = db.students.find_one({"email": email})
+        teacher = db.teachers.find_one({"email": email})
+        admin = db.admins.find_one({"email": email})
+        
+        user_coll = None
+        user_doc = None
+        
+        if student:
+            user_coll = db.students
+            user_doc = student
+        elif teacher:
+            user_coll = db.teachers
+            user_doc = teacher
+        elif admin:
+            user_coll = db.admins
+            user_doc = admin
+            
+        if user_doc and user_coll is not None:
+            # Generate secure reset token
+            token = secrets.token_urlsafe(32)
+            import datetime
+            # Expiry set to 1 hour from now
+            expiry = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+            
+            user_coll.update_one(
+                {"_id": user_doc["_id"]},
+                {"$set": {
+                    "reset_token": token,
+                    "reset_token_expiry": expiry
+                }}
+            )
+            
+            # Construct reset URL using request host
+            host_url = request.host_url.rstrip("/")
+            if "127.0.0.1" in host_url:
+                host_url = host_url.replace("127.0.0.1", "localhost")
+                
+            reset_link = f"{host_url}/reset_password/{token}"
+            print(f"\n[PASSWORD RESET SIMULATION] Click to reset password for {email}: {reset_link}\n")
+            
+            # Attempt real SMTP mail sending
+            mail_success, mail_error = send_reset_email(email, reset_link)
+            if mail_success:
+                flash(f"A password reset link has been successfully sent to {email}.", "success")
+                # Hide developer sandbox card since email was successfully delivered
+                reset_link = None
+            else:
+                # If mail sending failed, flash a warning/info and fallback to the simulation sandbox
+                if os.getenv("SMTP_EMAIL") and os.getenv("SMTP_EMAIL") != "your-project-email@gmail.com":
+                    flash(f"Failed to send email via SMTP ({mail_error}). Falling back to Developer Sandbox simulation.", "warning")
+                else:
+                    flash("SMTP email credentials are not configured in your .env file. Falling back to Developer Sandbox simulation.", "info")
+        else:
+            flash("No active account found with that email address. Please double check.", "error")
+            
+    return render_template("forgot_password.html", reset_link=reset_link)
+
+
+@app.route("/reset_password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    """Reset account password using valid token"""
+    if "user_id" in session:
+        session.clear()
+        
+    import datetime
+    
+    # 1. Search for user with matching token in MongoDB collections
+    student = db.students.find_one({"reset_token": token})
+    teacher = db.teachers.find_one({"reset_token": token})
+    admin = db.admins.find_one({"reset_token": token})
+    
+    user_coll = None
+    user_doc = None
+    
+    if student:
+        user_coll = db.students
+        user_doc = student
+    elif teacher:
+        user_coll = db.teachers
+        user_doc = teacher
+    elif admin:
+        user_coll = db.admins
+        user_doc = admin
+        
+    if not user_doc or user_coll is None:
+        flash("The password reset link is invalid or has already been used.", "error")
+        return redirect(url_for("forgot_password"))
+        
+    # 2. Check token expiration
+    expiry = user_doc.get("reset_token_expiry")
+    if not expiry:
+        flash("The password reset link is invalid.", "error")
+        return redirect(url_for("forgot_password"))
+        
+    now = datetime.datetime.utcnow()
+    if expiry < now:
+        # Clean up expired token
+        user_coll.update_one(
+            {"_id": user_doc["_id"]},
+            {"$unset": {"reset_token": "", "reset_token_expiry": ""}}
+        )
+        flash("Your password reset link has expired. Please request a new one.", "error")
+        return redirect(url_for("forgot_password"))
+        
+    if request.method == "POST":
+        password = request.form.get("password")
+        
+        # Hash new password
+        hashed_password = generate_password_hash(password)
+        
+        # Update user password and clear reset token fields
+        user_coll.update_one(
+            {"_id": user_doc["_id"]},
+            {"$set": {"password": hashed_password},
+             "$unset": {"reset_token": "", "reset_token_expiry": ""}}
+        )
+        
+        flash("Your password has been reset successfully! You can now sign in.", "success")
+        return redirect(url_for("login"))
+        
+    return render_template("reset_password.html", token=token)
+
+
+# ----------------------------------------------------
+# GOOGLE OAUTH 2.0 FLOW ROUTES
+# ----------------------------------------------------
+
+@app.route("/login/google")
+def login_google():
+    """Initiate Google OAuth 2.0 flow"""
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+    if not redirect_uri:
+        redirect_uri = url_for("login_google_callback", _external=True)
+        if "127.0.0.1" in redirect_uri:
+            redirect_uri = redirect_uri.replace("127.0.0.1", "localhost")
+    
+    # Generate random state to protect against CSRF
+    state = secrets.token_urlsafe(16)
+    session["oauth_state"] = state
+    
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "prompt": "select_account"
+    }
+    
+    authorization_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+    return redirect(authorization_url)
+
+
+@app.route("/login/google/callback")
+def login_google_callback():
+    """Handle Google OAuth 2.0 callback and enforce domain/auto-registration"""
+    # 1. Verify CSRF state
+    request_state = request.args.get("state")
+    session_state = session.pop("oauth_state", None)
+    
+    if not request_state or request_state != session_state:
+        flash("Authentication failed: session state mismatch.", "error")
+        return redirect(url_for("login"))
+        
+    code = request.args.get("code")
+    if not code:
+        flash("Authentication failed: authorization code not returned.", "error")
+        return redirect(url_for("login"))
+        
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+    if not redirect_uri:
+        redirect_uri = url_for("login_google_callback", _external=True)
+        if "127.0.0.1" in redirect_uri:
+            redirect_uri = redirect_uri.replace("127.0.0.1", "localhost")
+    
+    # 2. Exchange code for Access Token
+    token_url = "https://oauth2.googleapis.com/token"
+    data = {
+        "code": code,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code"
+    }
+    
+    try:
+        token_response = requests.post(token_url, data=data, timeout=10)
+        token_data = token_response.json()
+        
+        if "error" in token_data:
+            flash(f"OAuth token exchange error: {token_data.get('error_description', 'unknown error')}", "error")
+            return redirect(url_for("login"))
+            
+        access_token = token_data.get("access_token")
+        
+        # 3. Fetch user profile from UserInfo Endpoint
+        userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+        headers = {"Authorization": f"Bearer {access_token}"}
+        userinfo_response = requests.get(userinfo_url, headers=headers, timeout=10)
+        user_info = userinfo_response.json()
+        
+        email = user_info.get("email")
+        name = user_info.get("name", "Parul Student")
+        
+        if not email:
+            flash("Unable to retrieve email from Google login.", "error")
+            return redirect(url_for("login"))
+            
+        # 4. Enforce @paruluniversity.ac.in domain validation (except admin system bypass)
+        if email != "admin@edupilot.com" and email != "yaseenashu0108@gmail.com" and not email.endswith("@paruluniversity.ac.in"):
+            flash("Access restricted to @paruluniversity.ac.in domain users only.", "error")
+            return redirect(url_for("login"))
+            
+        # 5. Check if user already exists in students, teachers or admins
+        student = mongo_to_dict(db.students.find_one({"email": email}))
+        teacher = mongo_to_dict(db.teachers.find_one({"email": email}))
+        admin = mongo_to_dict(db.admins.find_one({"email": email}))
+        
+        if student:
+            session["user_id"] = student["id"]
+            session["role"] = "student"
+            session["name"] = student["name"]
+            session["email"] = student["email"]
+            session["department"] = student["department"]
+            flash(f"Successfully logged in as {student['name']} via Google!", "success")
+            return redirect(url_for("student_dashboard"))
+            
+        elif teacher:
+            session["user_id"] = teacher["id"]
+            session["role"] = "teacher"
+            session["name"] = teacher["name"]
+            session["email"] = teacher["email"]
+            session["department"] = teacher["department"]
+            flash(f"Successfully logged in as {teacher['name']} via Google!", "success")
+            return redirect(url_for("teacher_dashboard"))
+            
+        elif admin:
+            session["user_id"] = admin["id"]
+            session["role"] = "admin"
+            session["name"] = admin["name"]
+            session["email"] = admin["email"]
+            flash(f"Successfully logged in as Admin via Google!", "success")
+            return redirect(url_for("admin_dashboard"))
+            
+        else:
+            # First-time user: Auto-register with premium student defaults!
+            hashed_pwd = generate_password_hash(secrets.token_urlsafe(16))
+            
+            res = db.students.insert_one({
+                "name": name,
+                "email": email,
+                "password": hashed_pwd,
+                "department": "Computer Science",  # default
+                "semester": 1,                      # default
+                "cgpa": 7.0,
+                "attendance": 80.0,
+                "coding_score": 50,
+                "assignment_score": 60,
+                "career_goal": "Software Developer"  # default
+            })
+            
+            student_id = res.inserted_id
+            
+            # Seed 5 basic subjects for student performance evaluation
+            subjects = [
+                {"student_id": student_id, "subject_name": "Data Structures & Algorithms", "marks": 70},
+                {"student_id": student_id, "subject_name": "Database Management Systems", "marks": 68},
+                {"student_id": student_id, "subject_name": "Operating Systems", "marks": 75},
+                {"student_id": student_id, "subject_name": "Computer Networks", "marks": 62},
+                {"student_id": student_id, "subject_name": "Mathematics", "marks": 65}
+            ]
+            db.subjects.insert_many(subjects)
+                
+            # Create default weekly tasks
+            default_tasks = generate_weekly_tasks(str(student_id), 7.0, 80.0, 50, "Low Risk", "Software Developer", [])
+            task_docs = []
+            for task in default_tasks:
+                task_docs.append({
+                    "student_id": student_id,
+                    "task_title": task["task_title"],
+                    "status": task["status"],
+                    "due_date": task["due_date"]
+                })
+            if task_docs:
+                db.tasks.insert_many(task_docs)
+                
+            # Create a base prediction record
+            db.predictions.insert_one({
+                "student_id": student_id,
+                "predicted_gpa": 7.15,
+                "risk_level": "Low Risk",
+                "placement_score": 58.0
+            })
+            
+            # Fetch the newly registered student
+            student = mongo_to_dict(db.students.find_one({"_id": student_id}))
+            
+            # Establish Session
+            session["user_id"] = student["id"]
+            session["role"] = "student"
+            session["name"] = student["name"]
+            session["email"] = student["email"]
+            session["department"] = student["department"]
+            
+            flash(f"Welcome to EduPilot! Your student profile has been auto-registered.", "success")
+            return redirect(url_for("student_dashboard"))
+            
+    except Exception as e:
+        flash(f"Google Sign-In failed: {str(e)}", "error")
+        return redirect(url_for("login"))
 
 
 # ----------------------------------------------------
@@ -213,16 +760,21 @@ def student_dashboard():
         return redirect(url_for("login"))
         
     student_id = session["user_id"]
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    oid = to_object_id(student_id)
+    if not oid:
+        session.clear()
+        flash("Your session is invalid or has expired. Please log in again.", "error")
+        return redirect(url_for("login"))
+        
+    student = mongo_to_dict(db.students.find_one({"_id": oid}))
     
-    # 1. Fetch Student Info
-    cursor.execute("SELECT * FROM students WHERE id = ?", (student_id,))
-    student = cursor.fetchone()
-    
-    # 2. Fetch Subjects and calculate weak areas (< 60)
-    cursor.execute("SELECT * FROM subjects WHERE student_id = ?", (student_id,))
-    subjects = cursor.fetchall()
+    if not student:
+        session.clear()
+        flash("Student profile not found.", "error")
+        return redirect(url_for("login"))
+        
+    # Fetch Subjects and calculate weak areas (< 60)
+    subjects = mongo_to_list(db.subjects.find({"student_id": oid}))
     
     weak_subjects = []
     marks_labels = []
@@ -233,7 +785,7 @@ def student_dashboard():
         if sub["marks"] < 60:
             weak_subjects.append(sub["subject_name"])
             
-    # 3. Predict Academic Risk and GPA using ML models
+    # Predict Academic Risk and GPA using ML models
     attendance = student["attendance"]
     cgpa = student["cgpa"]
     coding_score = student["coding_score"]
@@ -253,7 +805,7 @@ def student_dashboard():
             pred = risk_model.predict([[attendance, cgpa, coding_score, assignment_score]])
             risk_level = pred[0]
         except Exception as e:
-            print(f"Error runs ML inference: {e}")
+            print(f"Error running ML inference: {e}")
     else:
         # Fallback heuristic
         if attendance < 60 or cgpa < 5.0 or (cgpa < 5.5 and assignment_score < 50):
@@ -268,37 +820,37 @@ def student_dashboard():
             pred = gpa_model.predict([[attendance, assignment_score, coding_score]])
             predicted_gpa = float(np.clip(pred[0], 2.0, 10.0))
         except Exception as e:
-            print(f"Error runs GPA ML inference: {e}")
+            print(f"Error running GPA ML inference: {e}")
     else:
         # Fallback heuristic
         gpa_shift = (coding_score + assignment_score + attendance) / 300.0 - 0.5
         predicted_gpa = float(np.clip(cgpa + gpa_shift * 0.35, 2.0, 10.0))
         
     # Update predictions table cache
-    cursor.execute("SELECT id FROM predictions WHERE student_id = ?", (student_id,))
-    pred_record = cursor.fetchone()
+    pred_record = db.predictions.find_one({"student_id": oid})
     if pred_record:
-        cursor.execute("""
-        UPDATE predictions 
-        SET predicted_gpa = ?, risk_level = ?, placement_score = ?
-        WHERE student_id = ?
-        """, (predicted_gpa, risk_level, placement_score, student_id))
+        db.predictions.update_one(
+            {"student_id": oid},
+            {"$set": {
+                "predicted_gpa": predicted_gpa,
+                "risk_level": risk_level,
+                "placement_score": placement_score
+            }}
+        )
     else:
-        cursor.execute("""
-        INSERT INTO predictions (student_id, predicted_gpa, risk_level, placement_score)
-        VALUES (?, ?, ?, ?)
-        """, (student_id, predicted_gpa, risk_level, placement_score))
-    conn.commit()
-    
-    # 4. Fetch Weekly Tasks
-    cursor.execute("SELECT * FROM tasks WHERE student_id = ? ORDER BY id DESC", (student_id,))
-    tasks = cursor.fetchall()
+        db.predictions.insert_one({
+            "student_id": oid,
+            "predicted_gpa": predicted_gpa,
+            "risk_level": risk_level,
+            "placement_score": placement_score
+        })
+        
+    # Fetch Weekly Tasks sorted by _id descending
+    tasks = mongo_to_list(db.tasks.find({"student_id": oid}).sort("_id", -1))
     
     # Fetch top recommendation
     recs = get_recommendations(cgpa, attendance, coding_score, assignment_score, career_goal)
     career_recs = recs["career_recommendations"]
-    
-    conn.close()
     
     return render_template(
         "student_dashboard.html",
@@ -322,14 +874,16 @@ def student_recommendations():
         return redirect(url_for("login"))
         
     student_id = session["user_id"]
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT * FROM students WHERE id = ?", (student_id,))
-    student = cursor.fetchone()
-    
-    conn.close()
-    
+    oid = to_object_id(student_id)
+    if not oid:
+        session.clear()
+        return redirect(url_for("login"))
+        
+    student = mongo_to_dict(db.students.find_one({"_id": oid}))
+    if not student:
+        session.clear()
+        return redirect(url_for("login"))
+        
     recs = get_recommendations(
         student["cgpa"], 
         student["attendance"], 
@@ -353,19 +907,18 @@ def student_analytics():
         return redirect(url_for("login"))
         
     student_id = session["user_id"]
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT * FROM students WHERE id = ?", (student_id,))
-    student = cursor.fetchone()
-    
-    cursor.execute("SELECT * FROM subjects WHERE student_id = ?", (student_id,))
-    subjects = cursor.fetchall()
-    
-    cursor.execute("SELECT * FROM predictions WHERE student_id = ?", (student_id,))
-    pred = cursor.fetchone()
-    
-    conn.close()
+    oid = to_object_id(student_id)
+    if not oid:
+        session.clear()
+        return redirect(url_for("login"))
+        
+    student = mongo_to_dict(db.students.find_one({"_id": oid}))
+    if not student:
+        session.clear()
+        return redirect(url_for("login"))
+        
+    subjects = mongo_to_list(db.subjects.find({"student_id": oid}))
+    pred = mongo_to_dict(db.predictions.find_one({"student_id": oid}))
     
     marks_labels = [s["subject_name"] for s in subjects]
     marks_values = [s["marks"] for s in subjects]
@@ -385,24 +938,25 @@ def student_analytics():
     )
 
 
-@app.route("/student/tasks/toggle/<int:task_id>")
+@app.route("/student/tasks/toggle/<task_id>")
 def toggle_task(task_id):
     """Toggle weekly checklist task status between Completed and Pending"""
     if "user_id" not in session or session.get("role") != "student":
         return redirect(url_for("login"))
         
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    student_id = session["user_id"]
+    s_oid = to_object_id(student_id)
+    t_oid = to_object_id(task_id)
     
-    cursor.execute("SELECT * FROM tasks WHERE id = ? AND student_id = ?", (task_id, session["user_id"]))
-    task = cursor.fetchone()
+    if not s_oid or not t_oid:
+        return redirect(url_for("student_dashboard"))
+        
+    task = db.tasks.find_one({"_id": t_oid, "student_id": s_oid})
     
     if task:
         new_status = "Pending" if task["status"] == "Completed" else "Completed"
-        cursor.execute("UPDATE tasks SET status = ? WHERE id = ?", (new_status, task_id))
-        conn.commit()
+        db.tasks.update_one({"_id": t_oid}, {"$set": {"status": new_status}})
         
-    conn.close()
     return redirect(url_for("student_dashboard"))
 
 
@@ -413,27 +967,28 @@ def regenerate_tasks():
         return redirect(url_for("login"))
         
     student_id = session["user_id"]
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Get student performance variables
-    cursor.execute("SELECT * FROM students WHERE id = ?", (student_id,))
-    student = cursor.fetchone()
-    
-    cursor.execute("SELECT risk_level FROM predictions WHERE student_id = ?", (student_id,))
-    pred_row = cursor.fetchone()
+    oid = to_object_id(student_id)
+    if not oid:
+        session.clear()
+        return redirect(url_for("login"))
+        
+    student = db.students.find_one({"_id": oid})
+    if not student:
+        session.clear()
+        return redirect(url_for("login"))
+        
+    pred_row = db.predictions.find_one({"student_id": oid})
     risk = pred_row["risk_level"] if pred_row else "Low Risk"
     
-    cursor.execute("SELECT subject_name FROM subjects WHERE student_id = ? AND marks < 60", (student_id,))
-    weak_rows = cursor.fetchall()
+    weak_rows = db.subjects.find({"student_id": oid, "marks": {"$lt": 60}})
     weak_subjs = [r["subject_name"] for r in weak_rows]
     
     # Delete current tasks
-    cursor.execute("DELETE FROM tasks WHERE student_id = ?", (student_id,))
+    db.tasks.delete_many({"student_id": oid})
     
     # Generate new weekly tasks
     new_tasks = generate_weekly_tasks(
-        student_id, 
+        str(oid), 
         student["cgpa"], 
         student["attendance"], 
         student["coding_score"], 
@@ -442,14 +997,17 @@ def regenerate_tasks():
         weak_subjs
     )
     
+    task_docs = []
     for t in new_tasks:
-        cursor.execute("""
-        INSERT INTO tasks (student_id, task_title, status, due_date)
-        VALUES (?, ?, ?, ?)
-        """, (student_id, t["task_title"], t["status"], t["due_date"]))
+        task_docs.append({
+            "student_id": oid,
+            "task_title": t["task_title"],
+            "status": t["status"],
+            "due_date": t["due_date"]
+        })
+    if task_docs:
+        db.tasks.insert_many(task_docs)
         
-    conn.commit()
-    conn.close()
     flash("Weekly tasks regenerated based on AI parameters!", "success")
     return redirect(url_for("student_dashboard"))
 
@@ -462,16 +1020,89 @@ def update_career_goal():
         
     career_goal = request.form.get("career_goal")
     student_id = session["user_id"]
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("UPDATE students SET career_goal = ? WHERE id = ?", (career_goal, student_id))
-    conn.commit()
-    conn.close()
+    oid = to_object_id(student_id)
+    if not oid:
+        session.clear()
+        return redirect(url_for("login"))
+        
+    db.students.update_one({"_id": oid}, {"$set": {"career_goal": career_goal}})
     
     flash(f"Career focus successfully switched to {career_goal}!", "success")
     return redirect(url_for("student_dashboard"))
+
+
+@app.route("/edit_profile", methods=["GET", "POST"])
+def edit_profile():
+    """Edit Profile Settings Page for Students and Teachers"""
+    if "user_id" not in session or session.get("role") not in ["student", "teacher"]:
+        flash("Please log in to edit your profile.", "error")
+        return redirect(url_for("login"))
+        
+    user_id = session["user_id"]
+    oid = to_object_id(user_id)
+    if not oid:
+        session.clear()
+        flash("Your session is invalid or has expired. Please log in again.", "error")
+        return redirect(url_for("login"))
+        
+    role = session["role"]
+    
+    if request.method == "POST":
+        name = request.form.get("name")
+        password = request.form.get("password")
+        department = request.form.get("department")
+        
+        if role == "student":
+            semester = int(request.form.get("semester"))
+            career_goal = request.form.get("career_goal")
+            
+            update_data = {
+                "name": name,
+                "department": department,
+                "semester": semester,
+                "career_goal": career_goal
+            }
+            if password:  # if new password is provided, hash and save it
+                update_data["password"] = generate_password_hash(password)
+                
+            db.students.update_one({"_id": oid}, {"$set": update_data})
+                
+            # Update active Flask session variables
+            session["name"] = name
+            session["department"] = department
+            
+            flash("Your student profile has been successfully updated!", "success")
+            return redirect(url_for("student_dashboard"))
+            
+        elif role == "teacher":
+            update_data = {
+                "name": name,
+                "department": department
+            }
+            if password:  # if new password is provided, hash and save it
+                update_data["password"] = generate_password_hash(password)
+                
+            db.teachers.update_one({"_id": oid}, {"$set": update_data})
+                
+            # Update active Flask session variables
+            session["name"] = name
+            session["department"] = department
+            
+            flash("Your faculty profile has been successfully updated!", "success")
+            return redirect(url_for("teacher_dashboard"))
+            
+    # GET request
+    if role == "student":
+        user = mongo_to_dict(db.students.find_one({"_id": oid}))
+    else:
+        user = mongo_to_dict(db.teachers.find_one({"_id": oid}))
+        
+    if not user:
+        session.clear()
+        flash("Your profile was not found.", "error")
+        return redirect(url_for("login"))
+        
+    return render_template("edit_profile.html", user=user)
 
 
 # ----------------------------------------------------
@@ -485,20 +1116,24 @@ def teacher_dashboard():
         return redirect(url_for("login"))
         
     dept = session.get("department")
-    conn = get_db_connection()
-    cursor = conn.cursor()
     
-    # 1. Fetch Students in department
-    cursor.execute("""
-        SELECT s.*, p.risk_level, p.predicted_gpa, p.placement_score 
-        FROM students s
-        LEFT JOIN predictions p ON s.id = p.student_id
-        WHERE s.department = ?
-        ORDER BY s.name ASC
-    """, (dept,))
-    students = cursor.fetchall()
+    # Fetch Students in department
+    students = mongo_to_list(db.students.find({"department": dept}).sort("name", 1))
     
-    # 2. Compute Statistics Averages
+    # Enrich student documents with cached predictive statistics
+    for s in students:
+        s_oid = to_object_id(s["id"])
+        pred = db.predictions.find_one({"student_id": s_oid}) if s_oid else None
+        if pred:
+            s["risk_level"] = pred.get("risk_level")
+            s["predicted_gpa"] = pred.get("predicted_gpa")
+            s["placement_score"] = pred.get("placement_score")
+        else:
+            s["risk_level"] = "Low Risk"
+            s["predicted_gpa"] = s["cgpa"]
+            s["placement_score"] = 60.0
+            
+    # Compute Statistics Averages
     total_students = len(students)
     high_risk_count = 0
     med_risk_count = 0
@@ -510,7 +1145,7 @@ def teacher_dashboard():
         cgpa_sum += s["cgpa"]
         attendance_sum += s["attendance"]
         
-        risk = s["risk_level"] or "Low Risk"
+        risk = s.get("risk_level") or "Low Risk"
         if risk == "High Risk":
             high_risk_count += 1
         elif risk == "Medium Risk":
@@ -530,7 +1165,6 @@ def teacher_dashboard():
         "avg_attendance": avg_attendance
     }
     
-    conn.close()
     return render_template(
         "teacher_dashboard.html",
         active_page="dashboard",
@@ -547,23 +1181,14 @@ def teacher_analytics():
         return redirect(url_for("login"))
         
     dept = session.get("department")
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT s.attendance, p.risk_level 
-        FROM students s
-        LEFT JOIN predictions p ON s.id = p.student_id
-        WHERE s.department = ?
-    """, (dept,))
-    rows = cursor.fetchall()
+    students = mongo_to_list(db.students.find({"department": dept}))
     
     # Calculate attendance distribution ranges:
-    # 1: < 60%, 2: 60-75%, 3: 75-90%, 4: 90-100%
+    # 0: < 60%, 1: 60-75%, 2: 75-90%, 3: 90-100%
     att_ranges = [0, 0, 0, 0]
     high_r, med_r, low_r = 0, 0, 0
-    for r in rows:
-        att = r["attendance"]
+    for s in students:
+        att = s["attendance"]
         if att < 60:
             att_ranges[0] += 1
         elif att < 75:
@@ -573,7 +1198,9 @@ def teacher_analytics():
         else:
             att_ranges[3] += 1
             
-        risk = r["risk_level"] or "Low Risk"
+        s_oid = to_object_id(s["id"])
+        pred = db.predictions.find_one({"student_id": s_oid}) if s_oid else None
+        risk = pred.get("risk_level") if pred else "Low Risk"
         if risk == "High Risk":
             high_r += 1
         elif risk == "Medium Risk":
@@ -586,8 +1213,6 @@ def teacher_analytics():
         "med_risk": med_r,
         "high_risk": high_r
     }
-    
-    conn.close()
     
     return render_template(
         "analytics.html",
@@ -607,20 +1232,11 @@ def admin_dashboard():
     if "user_id" not in session or session.get("role") != "admin":
         return redirect(url_for("login"))
         
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT COUNT(*) FROM students")
-    students_count = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COUNT(*) FROM teachers")
-    teachers_count = cursor.fetchone()[0]
+    students_count = db.students.count_documents({})
+    teachers_count = db.teachers.count_documents({})
     
     # Read active teachers list
-    cursor.execute("SELECT * FROM teachers ORDER BY id DESC")
-    teachers = cursor.fetchall()
-    
-    conn.close()
+    teachers = mongo_to_list(db.teachers.find().sort("_id", -1))
     
     # Read dataset size
     csv_rows = 0
@@ -651,19 +1267,14 @@ def admin_analytics():
     if "user_id" not in session or session.get("role") != "admin":
         return redirect(url_for("login"))
         
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Fetch global averages
-    cursor.execute("SELECT attendance, cgpa FROM students")
-    rows = cursor.fetchall()
+    students = mongo_to_list(db.students.find())
     
     att_ranges = [0, 0, 0, 0]
     cgpa_sum, att_sum = 0, 0
-    total = len(rows)
-    for r in rows:
-        att = r["attendance"]
-        cgpa_sum += r["cgpa"]
+    total = len(students)
+    for s in students:
+        att = s["attendance"]
+        cgpa_sum += s["cgpa"]
         att_sum += att
         if att < 60:
             att_ranges[0] += 1
@@ -674,24 +1285,17 @@ def admin_analytics():
         else:
             att_ranges[3] += 1
             
-    cursor.execute("""
-        SELECT 
-            SUM(CASE WHEN risk_level = 'Low Risk' THEN 1 ELSE 0 END) as low,
-            SUM(CASE WHEN risk_level = 'Medium Risk' THEN 1 ELSE 0 END) as med,
-            SUM(CASE WHEN risk_level = 'High Risk' THEN 1 ELSE 0 END) as high
-        FROM predictions
-    """)
-    pred_counts = cursor.fetchone()
+    low = db.predictions.count_documents({"risk_level": "Low Risk"})
+    med = db.predictions.count_documents({"risk_level": "Medium Risk"})
+    high = db.predictions.count_documents({"risk_level": "High Risk"})
     
     stats = {
-        "low_risk": pred_counts["low"] or 0,
-        "med_risk": pred_counts["med"] or 0,
-        "high_risk": pred_counts["high"] or 0,
+        "low_risk": low,
+        "med_risk": med,
+        "high_risk": high,
         "avg_cgpa": cgpa_sum / total if total > 0 else 0,
         "avg_attendance": att_sum / total if total > 0 else 0
     }
-    
-    conn.close()
     
     return render_template(
         "analytics.html",
@@ -712,42 +1316,39 @@ def admin_add_teacher():
     password = request.form.get("password")
     department = request.form.get("department")
     
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT id FROM teachers WHERE email = ?", (email,))
-    if cursor.fetchone():
+    # Enforce @paruluniversity.ac.in domain validation for teachers
+    if not email.endswith("@paruluniversity.ac.in"):
+        flash("Professor registration is restricted to @paruluniversity.ac.in domain users only.", "error")
+        return redirect(url_for("admin_dashboard"))
+        
+    if db.teachers.find_one({"email": email}):
         flash("Professor email already registered!", "error")
-        conn.close()
         return redirect(url_for("admin_dashboard"))
         
     hashed_pwd = generate_password_hash(password)
     try:
-        cursor.execute("""
-        INSERT INTO teachers (name, email, password, department)
-        VALUES (?, ?, ?, ?)
-        """, (name, email, hashed_pwd, department))
-        conn.commit()
+        db.teachers.insert_one({
+            "name": name,
+            "email": email,
+            "password": hashed_pwd,
+            "department": department
+        })
         flash(f"Professor {name} successfully added to the system database!", "success")
     except Exception as e:
         flash(f"Error registering professor: {e}", "error")
     
-    conn.close()
     return redirect(url_for("admin_dashboard"))
 
 
-@app.route("/admin/teacher/delete/<int:teacher_id>")
+@app.route("/admin/teacher/delete/<teacher_id>")
 def admin_delete_teacher(teacher_id):
     """Remove a faculty account"""
     if "user_id" not in session or session.get("role") != "admin":
         return redirect(url_for("login"))
         
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("DELETE FROM teachers WHERE id = ?", (teacher_id,))
-    conn.commit()
-    conn.close()
+    oid = to_object_id(teacher_id)
+    if oid:
+        db.teachers.delete_one({"_id": oid})
     
     flash("Faculty account removed from platform database.", "success")
     return redirect(url_for("admin_dashboard"))
@@ -797,29 +1398,23 @@ def admin_train_models():
 # PDF / PRINTABLE STUDENT REPORT DOWNLOAD
 # ----------------------------------------------------
 
-@app.route("/download_report/<int:student_id>")
+@app.route("/download_report/<student_id>")
 def download_report(student_id):
     """Generate printable layout summary of student profile"""
     if "user_id" not in session or session.get("role") not in ["teacher", "admin"]:
         return "Unauthorized Access Profile", 403
         
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT * FROM students WHERE id = ?", (student_id,))
-    student = cursor.fetchone()
+    oid = to_object_id(student_id)
+    if not oid:
+        return "Invalid student identifier format", 400
+        
+    student = mongo_to_dict(db.students.find_one({"_id": oid}))
     
     if not student:
-        conn.close()
         return "Student record not found", 404
         
-    cursor.execute("SELECT * FROM subjects WHERE student_id = ?", (student_id,))
-    subjects = cursor.fetchall()
-    
-    cursor.execute("SELECT * FROM predictions WHERE student_id = ?", (student_id,))
-    pred = cursor.fetchone()
-    
-    conn.close()
+    subjects = mongo_to_list(db.subjects.find({"student_id": oid}))
+    pred = mongo_to_dict(db.predictions.find_one({"student_id": oid}))
     
     # Render direct report layout
     return render_template(
@@ -834,14 +1429,24 @@ def download_report(student_id):
 # DATABASE INITIALIZER ROUTINE
 # ----------------------------------------------------
 def startup_checks():
-    """Assures SQLite database is initialized and seeded on boot"""
-    if not os.path.exists(DB_PATH):
-        print("Database not found. Triggering db_setup.py...")
-        from database.db_setup import setup_database
-        # If student csv exists, setup will load records
-        setup_database(DB_PATH, CSV_PATH)
+    """Assures MongoDB Atlas connection is verified and seeded if empty"""
+    try:
+        db.client.admin.command('ping')
+        print("Successfully verified connection to MongoDB Atlas!")
+        
+        # If the database is completely unseeded, trigger seeding script
+        if db.students.count_documents({}) == 0:
+            print("MongoDB is currently empty. Triggering setup seeder...")
+            from database.mongo_setup import setup_mongo
+            setup_mongo()
+    except Exception as e:
+        print(f"MongoDB connection check failed: {e}")
+
 
 startup_checks()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Bind to 0.0.0.0 to support both IPv4 and IPv6 localhost resolution in port forwarding tunnels.
+    # Default to port 5000 to match authorized Google OAuth redirect URIs.
+    port = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)

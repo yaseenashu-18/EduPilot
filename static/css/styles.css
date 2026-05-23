@@ -428,3 +428,94 @@ body {
     border-radius: 0 16px 16px 0;
     padding: 1.25rem;
 }
+
+/* Password Visibility Toggle Styles */
+.password-wrapper {
+    position: relative;
+}
+
+.password-wrapper input {
+    padding-right: 2.75rem; /* Ensure text doesn't overlap eye icon */
+}
+
+.password-toggle-btn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 1.1rem;
+    transition: var(--transition-smooth);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+}
+
+.password-toggle-btn:hover {
+    color: var(--accent-secondary);
+}
+
+/* Google Login Button & Separator */
+.auth-separator {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin: 1.5rem 0;
+}
+.auth-separator::before,
+.auth-separator::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border-glass);
+}
+.auth-separator:not(:empty)::before {
+    margin-right: .75em;
+}
+.auth-separator:not(:empty)::after {
+    margin-left: .75em;
+}
+
+.btn-google {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    border: 1px solid var(--border-glass);
+    transition: var(--transition-smooth);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-weight: 500;
+    padding: 0.65rem 1rem;
+    border-radius: 10px;
+    text-decoration: none;
+}
+.btn-google:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(99, 102, 241, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: var(--text-primary);
+}
+[data-theme="light"] .btn-google {
+    background: #ffffff;
+    color: #374151;
+    border-color: #e5e7eb;
+}
+[data-theme="light"] .btn-google:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+.google-icon {
+    width: 18px;
+    height: 18px;
+}
+
+

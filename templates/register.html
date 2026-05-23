@@ -9,36 +9,49 @@
     <div class="auth-card card-premium card-glow-indigo animate-fade-in-up" style="max-width: 550px;">
         <div class="text-center mb-4">
             <h3 class="font-weight-700 m-0">Student Account Registration</h3>
-            <p class="text-secondary small">Gain access to custom learning milestones and automated academic risk models</p>
+            <p class="text-secondary small">Gain access to custom learning milestones and automated academic risk models
+            </p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, msg in messages %}
-                    <div class="alert alert-{% if category == 'error' %}danger{% else %}{{ category }}{% endif %} border-0 bg-opacity-15 text-start py-2 px-3 small rounded-3 mb-3 d-flex align-items-center gap-2" role="alert">
-                        <i class="fa-solid {% if category == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
-                        <div>{{ msg }}</div>
-                    </div>
-                {% endfor %}
-            {% endif %}
+        {% if messages %}
+        {% for category, msg in messages %}
+        <div class="alert alert-{% if category == 'error' %}danger{% else %}{{ category }}{% endif %} border-0 bg-opacity-15 text-start py-2 px-3 small rounded-3 mb-3 d-flex align-items-center gap-2"
+            role="alert">
+            <i
+                class="fa-solid {% if category == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+            <div>{{ msg }}</div>
+        </div>
+        {% endfor %}
+        {% endif %}
         {% endwith %}
 
         <form action="{{ url_for('register') }}" method="POST">
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label class="form-label form-label-premium">Full Name</label>
-                    <input type="text" name="name" class="form-control form-control-premium" placeholder="Yaseen Ashu" required>
+                    <input type="text" name="name" class="form-control form-control-premium" placeholder="Yaseen Ashu"
+                        required>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label form-label-premium">Email Address</label>
-                    <input type="email" name="email" class="form-control form-control-premium" placeholder="yaseen@edupilot.com" required>
+                    <input type="email" name="email" class="form-control form-control-premium"
+                        placeholder="yaseen@paruluniversity.ac.in" required>
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label class="form-label form-label-premium">Account Password</label>
-                    <input type="password" name="password" class="form-control form-control-premium" placeholder="••••••••" required>
+                    <div class="password-wrapper">
+                        <input type="password" name="password" id="register-password"
+                            class="form-control form-control-premium" placeholder="••••••••" required>
+                        <button type="button" class="password-toggle-btn"
+                            onclick="togglePasswordVisibility('register-password', 'register-toggle-icon')"
+                            title="Toggle Password Visibility">
+                            <i class="fa-solid fa-eye" id="register-toggle-icon"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label form-label-premium">Department Area</label>
@@ -85,7 +98,8 @@
 
         <div class="text-center mt-4 border-top border-glass pt-3">
             <span class="text-secondary small">Already registered?</span>
-            <a href="{{ url_for('login') }}" class="text-accent-secondary small ms-1 font-weight-500 text-decoration-none">
+            <a href="{{ url_for('login') }}"
+                class="text-accent-secondary small ms-1 font-weight-500 text-decoration-none">
                 Sign In Instead
             </a>
         </div>

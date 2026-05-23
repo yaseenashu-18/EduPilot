@@ -92,11 +92,11 @@ def setup_database(db_path=os.path.join("database", "database.db"), csv_path="st
     # Seed default teacher
     print("Seeding default teacher...")
     hashed_pwd = generate_password_hash("password123")
-    cursor.execute("SELECT id FROM teachers WHERE email = 'teacher@edupilot.com'")
+    cursor.execute("SELECT id FROM teachers WHERE email = 'teacher@paruluniversity.ac.in'")
     if not cursor.fetchone():
         cursor.execute("""
         INSERT INTO teachers (name, email, password, department)
-        VALUES ('Dr. Sarah Connor', 'teacher@edupilot.com', ?, 'Computer Science')
+        VALUES ('Dr. Sarah Connor', 'teacher@paruluniversity.ac.in', ?, 'Computer Science')
         """, (hashed_pwd,))
         
     # Seed default admin
@@ -110,14 +110,15 @@ def setup_database(db_path=os.path.join("database", "database.db"), csv_path="st
         
     # Seed default student
     print("Seeding default student...")
-    cursor.execute("SELECT id FROM students WHERE email = 'student@edupilot.com'")
+    cursor.execute("SELECT id FROM students WHERE email = 'student@paruluniversity.ac.in'")
     default_student_exists = cursor.fetchone()
     
     if not default_student_exists:
         cursor.execute("""
         INSERT INTO students (name, email, password, department, semester, cgpa, attendance, coding_score, assignment_score, career_goal)
-        VALUES ('Yaseen Ashu', 'student@edupilot.com', ?, 'Computer Science', 6, 7.8, 78.0, 65, 72, 'AIML Engineer')
+        VALUES ('Yaseen Ashu', 'student@paruluniversity.ac.in', ?, 'Computer Science', 6, 7.8, 78.0, 65, 72, 'AIML Engineer')
         """, (hashed_pwd,))
+
         
         student_id = cursor.lastrowid
         
@@ -169,7 +170,7 @@ def setup_database(db_path=os.path.join("database", "database.db"), csv_path="st
             added_count = 0
             for idx, row in df.head(100).iterrows():
                 # Avoid duplicates
-                if row['email'] == 'student@edupilot.com':
+                if row['email'] == 'student@paruluniversity.ac.in':
                     continue
                 
                 cursor.execute("SELECT id FROM students WHERE email = ?", (row['email'],))

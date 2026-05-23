@@ -123,6 +123,9 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark card-premium border-0 mt-2 shadow-lg">
                             <li><span class="dropdown-item-text text-muted" style="font-size:0.8rem;">Role: {{ session.get('role')|upper }}</span></li>
+                            {% if session.get('role') in ['student', 'teacher'] %}
+                            <li><a class="dropdown-item" href="{{ url_for('edit_profile') }}"><i class="fa-solid fa-user-pen me-2"></i>Edit Profile</a></li>
+                            {% endif %}
                             <li><hr class="dropdown-divider border-secondary"></li>
                             <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i class="fa-solid fa-right-from-bracket me-2"></i>Logout</a></li>
                         </ul>

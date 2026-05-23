@@ -6,3 +6,10 @@ faker==23.2.1
 joblib==1.3.2
 gunicorn==21.2.0
 werkzeug==3.0.1
+
+pymongo>=4.6.0
+dnspython>=2.6.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+
